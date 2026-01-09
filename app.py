@@ -81,7 +81,6 @@ div[data-testid="stExpander"] {
     background-color: #241240 !important;
     border-radius: 15px !important;
 }
-/* Arruma a cor da seta do expander */
 div[data-testid="stExpander"] summary svg { color: #d05ce3 !important; fill: #d05ce3 !important; }
 
 /* 7. Métricas */
@@ -124,12 +123,22 @@ svg {
 </style>
 """, unsafe_allow_html=True)
 
-# --- ESTADO DE SESSÃO ---
-if 'autenticado' not in st.session_state: st.session_state['autenticado'] = False
+# --- LÓGICA DO LINK MÁGICO (LOGIN AUTOMÁTICO) ---
+# Verifica se o link tem "?acesso=vip"
+params = st.query_params
+token_acesso = params.get("acesso", None)
+
+if 'autenticado' not in st.session_state: 
+    st.session_state['autenticado'] = False
+
+# Se o token estiver certo, libera o acesso direto
+if token_acesso == "vip":
+    st.session_state['autenticado'] = True
+
 if 'menu_index' not in st.session_state: st.session_state['menu_index'] = 0
 if 'menu_key' not in st.session_state: st.session_state['menu_key'] = 0
 
-# --- LOGIN ---
+# --- TELA DE LOGIN (Só aparece se NÃO tiver o link mágico) ---
 if not st.session_state['autenticado']:
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
@@ -163,6 +172,7 @@ with st.sidebar:
     st.divider()
     if st.button("Sair"):
         st.session_state['autenticado'] = False
+        st.query_params.clear() # Limpa o token ao sair
         st.rerun()
 
 # --- FUNCIONALIDADES ---
@@ -198,31 +208,23 @@ if menu_selecionado == "Agenda":
             if st.form_submit_button("Confirmar Agendamento"):
                 erro = False
                 if not nome_final or nome_final == "Nenhuma":
-                    st.error("Nome inválido!");
-                    erro = True
+                    st.error("Nome inválido!"); erro = True
                 if not s:
-                    st.error("Serviço obrigatório!");
-                    erro = True
+                    st.error("Serviço obrigatório!"); erro = True
 
                 if tipo_cadastro == "Nova Cliente":
                     if not cpf_novo:
-                        st.error("CPF obrigatório!");
-                        erro = True
+                        st.error("CPF obrigatório!"); erro = True
                     else:
                         try:
-                            supabase.table("clientes").insert(
-                                {"nome": nome_final, "cpf": cpf_novo, "telefone": t_novo}).execute()
+                            supabase.table("clientes").insert({"nome": nome_final, "cpf": cpf_novo, "telefone": t_novo}).execute()
                         except:
-                            st.error("CPF já existe!");
-                            erro = True
+                            st.error("CPF já existe!"); erro = True
 
                 if not erro:
-                    supabase.table("agenda").insert(
-                        {"data_hora": f"{d}T{h}", "cliente_nome": nome_final, "servico": ", ".join(s),
-                         "status": "Pendente"}).execute()
+                    supabase.table("agenda").insert({"data_hora": f"{d}T{h}", "cliente_nome": nome_final, "servico": ", ".join(s), "status": "Pendente"}).execute()
                     st.success("Agendado!")
-                    time.sleep(1);
-                    st.rerun()
+                    time.sleep(1); st.rerun()
 
     with col2:
         st.markdown("### 🟣 Próximos")
@@ -247,12 +249,9 @@ if menu_selecionado == "Agenda":
                         st.session_state['checkout_nome'] = row['cliente_nome']
                         st.session_state['checkout_serv'] = row['servico'].split(", ")
                         st.session_state['checkout_id'] = row['id']
-                        st.session_state['menu_index'] = 1;
-                        st.session_state['menu_key'] += 1;
-                        st.rerun()
+                        st.session_state['menu_index'] = 1; st.session_state['menu_key'] += 1; st.rerun()
                     if c2.button("Excluir", key=f"del_{row['id']}"):
-                        supabase.table("agenda").delete().eq("id", row['id']).execute();
-                        st.rerun()
+                        supabase.table("agenda").delete().eq("id", row['id']).execute(); st.rerun()
         else:
             st.info("Nenhum horário pendente.")
 
@@ -278,7 +277,7 @@ elif menu_selecionado == "Checkout":
 
             st.divider()
             st.markdown("#### 2. Baixa de Estoque")
-
+            
             input_keys = {}
             if estoque_atual:
                 cols = st.columns(3)
@@ -287,8 +286,7 @@ elif menu_selecionado == "Checkout":
                         key_name = f"st_{item['id']}"
                         st.number_input(f"{item['item']} (Disp: {item['quantidade']})", min_value=0, key=key_name)
                         input_keys[item['id']] = key_name
-            else:
-                st.info("Estoque vazio.")
+            else: st.info("Estoque vazio.")
 
             st.divider()
             st.markdown("#### 3. Pagamento")
@@ -315,15 +313,11 @@ elif menu_selecionado == "Checkout":
                     supabase.table("estoque").update({"quantidade": nova_qtd}).eq("id", id_i).execute()
 
                 if 'checkout_id' in st.session_state:
-                    supabase.table("agenda").update({"status": "Concluído"}).eq("id", st.session_state[
-                        'checkout_id']).execute()
+                    supabase.table("agenda").update({"status": "Concluído"}).eq("id", st.session_state['checkout_id']).execute()
                     del st.session_state['checkout_id']
 
                 st.success("Venda salva!")
-                st.session_state['menu_index'] = 0;
-                st.session_state['menu_key'] += 1;
-                time.sleep(1);
-                st.rerun()
+                st.session_state['menu_index'] = 0; st.session_state['menu_key'] += 1; time.sleep(1); st.rerun()
 
 elif menu_selecionado == "Financeiro":
     st.header("📊 Financeiro")
@@ -355,8 +349,7 @@ elif menu_selecionado == "Financeiro":
             val = st.number_input("Valor (R$)", min_value=0.0)
             if st.form_submit_button("Salvar Conta"):
                 supabase.table("despesas").insert({"descricao": desc, "valor": val}).execute()
-                st.success("Salvo!");
-                st.rerun()
+                st.success("Salvo!"); st.rerun()
 
 elif menu_selecionado == "CRM & Fidelidade":
     st.header("💎 CRM")
@@ -407,13 +400,11 @@ elif menu_selecionado == "Estoque":
 
                 if c1.button("➖ 1", key=f"sub_{item['id']}"):
                     if item['quantidade'] > 0:
-                        supabase.table("estoque").update({"quantidade": item['quantidade'] - 1}).eq("id", item[
-                            'id']).execute()
+                        supabase.table("estoque").update({"quantidade": item['quantidade'] - 1}).eq("id", item['id']).execute()
                         st.rerun()
 
                 if c2.button("➕ 1", key=f"add_{item['id']}"):
-                    supabase.table("estoque").update({"quantidade": item['quantidade'] + 1}).eq("id",
-                                                                                                item['id']).execute()
+                    supabase.table("estoque").update({"quantidade": item['quantidade'] + 1}).eq("id", item['id']).execute()
                     st.rerun()
 
                 if c3.button("🗑️ Excluir Item", key=f"del_{item['id']}"):
@@ -427,9 +418,7 @@ elif menu_selecionado == "Estoque":
                     nova_qtd_manual = st.number_input("Quantidade Total", value=item['quantidade'], min_value=0)
 
                     if st.form_submit_button("💾 Salvar Alterações"):
-                        supabase.table("estoque").update({"item": novo_nome, "quantidade": nova_qtd_manual}).eq("id",
-                                                                                                                item[
-                                                                                                                    'id']).execute()
+                        supabase.table("estoque").update({"item": novo_nome, "quantidade": nova_qtd_manual}).eq("id", item['id']).execute()
                         st.success("Atualizado!")
                         st.rerun()
     else:
@@ -446,8 +435,7 @@ elif menu_selecionado == "Clientes":
             if st.form_submit_button("Salvar"):
                 if n and c:
                     supabase.table("clientes").insert({"nome": n, "cpf": c, "telefone": t, "anamnese": a}).execute()
-                    st.success("Salvo!");
-                    st.rerun()
+                    st.success("Salvo!"); st.rerun()
 
     res = supabase.table("clientes").select("*").execute().data
     if res:
