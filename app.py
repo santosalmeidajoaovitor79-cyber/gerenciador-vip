@@ -15,7 +15,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- CONFIGURAÇÃO DO TELEGRAM (SEUS DADOS) ---
 TELEGRAM_TOKEN = "8506901466:AAEsomUI8OgHwry4l2JFHjyVDPOrIMwYROY"
-TELEGRAM_CHAT_ID = "8406555348"
+TELEGRAM_CHAT_ID = "6916175143"
 
 def enviar_telegram(mensagem):
     """Envia mensagem para o celular do profissional via Telegram"""
@@ -466,3 +466,4 @@ elif menu_selecionado == "Clientes":
             with st.expander(f"👤 {cli['nome']}"):
                 st.markdown(f"**Zap:** {cli.get('telefone', '-')}")
                 st.info(f"Obs: {cli.get('anamnese', '-')}")
+
