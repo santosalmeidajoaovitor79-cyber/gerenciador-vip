@@ -124,7 +124,6 @@ svg {
 """, unsafe_allow_html=True)
 
 # --- LÓGICA DO LINK MÁGICO (LOGIN AUTOMÁTICO) ---
-# Verifica se o link tem "?acesso=vip"
 params = st.query_params
 token_acesso = params.get("acesso", None)
 
@@ -138,7 +137,7 @@ if token_acesso == "vip":
 if 'menu_index' not in st.session_state: st.session_state['menu_index'] = 0
 if 'menu_key' not in st.session_state: st.session_state['menu_key'] = 0
 
-# --- TELA DE LOGIN (Só aparece se NÃO tiver o link mágico) ---
+# --- TELA DE LOGIN (CORRIGIDA - CASE INSENSITIVE) ---
 if not st.session_state['autenticado']:
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
@@ -147,11 +146,12 @@ if not st.session_state['autenticado']:
             u = st.text_input("Usuário").strip()
             p = st.text_input("Senha", type="password").strip()
             if st.form_submit_button("Entrar"):
-                if u == "admin" and p == "nail123":
+                # AQUI ESTÁ A CORREÇÃO: .lower() converte tudo para minúsculo
+                if u.lower() == "admin" and p.lower() == "nail123":
                     st.session_state['autenticado'] = True
                     st.rerun()
                 else:
-                    st.error("Senha incorreta!")
+                    st.error("Senha incorreta! (Tente 'admin' e 'nail123')")
     st.stop()
 
 # --- MENU LATERAL ---
