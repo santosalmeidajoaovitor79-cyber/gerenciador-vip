@@ -1,5 +1,7 @@
 streamlit
 supabase
 pandas
-streamlit-option-menu
 plotly
+streamlit-option-menu
+requests
+streamlit-autorefresh
