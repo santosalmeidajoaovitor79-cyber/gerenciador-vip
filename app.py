@@ -5,11 +5,26 @@ from datetime import datetime as dt
 from streamlit_option_menu import option_menu
 import time
 import plotly.express as px
+import requests
+from streamlit_autorefresh import st_autorefresh
 
 # --- CONFIGURAÇÕES DE ACESSO ---
 SUPABASE_URL = "https://ydsrakqqnljbnsfoavhb.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlkc3Jha3FxbmxqYm5zZm9hdmhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc5MDk4MjQsImV4cCI6MjA4MzQ4NTgyNH0.du454d_ZrTByEIVbIfQHNg1z6u4XfHvRhfyJwHz--Ug"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# --- CONFIGURAÇÃO DO TELEGRAM (SEUS DADOS) ---
+TELEGRAM_TOKEN = "8506901466:AAEsomUI8OgHwry4l2JFHjyVDPOrIMwYROY"
+TELEGRAM_CHAT_ID = "8406555348"
+
+def enviar_telegram(mensagem):
+    """Envia mensagem para o celular do profissional via Telegram"""
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": mensagem}
+    try:
+        requests.post(url, json=payload)
+    except:
+        pass
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(
@@ -17,6 +32,11 @@ st.set_page_config(
     layout="wide",
     page_icon="💜"
 )
+
+# --- ROBÔ DE VIGILÂNCIA (Auto-Refresh) ---
+# Isso faz a página atualizar sozinha a cada 60 segundos para checar horários
+# O usuário não vê nada acontecer, mas o código roda no fundo
+st_autorefresh(interval=60000, key="sistema_vigilancia")
 
 # --- TABELA DE PREÇOS ---
 TABELA_SERVICOS = {
@@ -36,14 +56,14 @@ st.markdown("""
 [data-testid="stSidebar"] { background-color: #2d1b4e !important; border-right: 1px solid #432c7a; }
 [data-testid="stHeader"] { background-color: #1a0b2e !important; }
 
-/* 2. Tipografia (Apenas textos, protegendo ícones) */
+/* 2. Tipografia */
 h1, h2, h3, h4, h5, h6, p, label, .stMarkdown, span, div {
     font-family: 'Montserrat', sans-serif;
     color: #e0d4fc !important;
 }
 h1, h2, h3 { color: #d05ce3 !important; font-weight: 700 !important; }
 
-/* 3. Inputs e Caixas de Texto */
+/* 3. Inputs */
 .stTextInput input, .stNumberInput input, .stDateInput input, .stTimeInput input, .stTextArea textarea {
     background-color: #2d1b4e !important;
     color: #ffffff !important;
@@ -51,7 +71,7 @@ h1, h2, h3 { color: #d05ce3 !important; font-weight: 700 !important; }
     border-radius: 8px !important;
 }
 
-/* 4. Selectbox (Menu Dropdown) */
+/* 4. Selectbox */
 div[data-baseweb="select"] > div {
     background-color: #2d1b4e !important;
     border: 1px solid #5b3a95 !important;
@@ -60,7 +80,7 @@ div[data-baseweb="select"] > div {
 div[data-baseweb="popover"] { background-color: #2d1b4e !important; }
 div[data-baseweb="select"] span { color: white !important; }
 
-/* 5. Botões Neon */
+/* 5. Botões */
 .stButton > button {
     border-radius: 12px !important;
     background: linear-gradient(90deg, #9c27b0, #673ab7) !important;
@@ -68,11 +88,6 @@ div[data-baseweb="select"] span { color: white !important; }
     font-weight: bold !important;
     border: 1px solid #d05ce3 !important;
     box-shadow: 0px 0px 10px rgba(156, 39, 176, 0.5) !important;
-    transition: transform 0.2s;
-}
-.stButton > button:hover {
-    transform: scale(1.02);
-    box-shadow: 0px 0px 15px #d05ce3 !important;
 }
 
 /* 6. Cards / Expanders */
@@ -82,30 +97,8 @@ div[data-testid="stExpander"] {
     border-radius: 15px !important;
 }
 div[data-testid="stExpander"] summary svg { color: #d05ce3 !important; fill: #d05ce3 !important; }
-
-/* 7. Métricas */
-div[data-testid="stMetric"] {
-    background-color: #241240 !important;
-    border: 1px solid #5b3a95 !important;
-    border-radius: 12px !important;
-    padding: 10px !important;
-}
-div[data-testid="stMetricValue"] { color: #d05ce3 !important; }
-
-/* 8. CORREÇÃO FINAL DE ÍCONES (Impede texto por cima) */
-.material-icons, 
-i, 
-span[class^="material-"], 
-svg {
+.material-icons, i, span[class^="material-"], svg {
     font-family: 'Material Icons' !important;
-    font-weight: normal;
-    font-style: normal;
-    display: inline-block;
-    text-transform: none;
-    letter-spacing: normal;
-    word-wrap: normal;
-    white-space: nowrap;
-    direction: ltr;
 }
 
 /* Link Zap */
@@ -123,7 +116,7 @@ svg {
 </style>
 """, unsafe_allow_html=True)
 
-# --- LÓGICA DO LINK MÁGICO (LOGIN AUTOMÁTICO) ---
+# --- LOGIN & LINK MÁGICO ---
 params = st.query_params
 token_acesso = params.get("acesso", None)
 
@@ -137,7 +130,7 @@ if token_acesso == "vip":
 if 'menu_index' not in st.session_state: st.session_state['menu_index'] = 0
 if 'menu_key' not in st.session_state: st.session_state['menu_key'] = 0
 
-# --- TELA DE LOGIN (CORRIGIDA - CASE INSENSITIVE) ---
+# --- TELA DE LOGIN ---
 if not st.session_state['autenticado']:
     c1, c2, c3 = st.columns([1, 2, 1])
     with c2:
@@ -146,13 +139,36 @@ if not st.session_state['autenticado']:
             u = st.text_input("Usuário").strip()
             p = st.text_input("Senha", type="password").strip()
             if st.form_submit_button("Entrar"):
-                # AQUI ESTÁ A CORREÇÃO: .lower() converte tudo para minúsculo
+                # .lower() para aceitar maiúsculas/minúsculas
                 if u.lower() == "admin" and p.lower() == "nail123":
                     st.session_state['autenticado'] = True
                     st.rerun()
                 else:
                     st.error("Senha incorreta! (Tente 'admin' e 'nail123')")
     st.stop()
+
+# --- LÓGICA DE ALERTA AUTOMÁTICO (TELEGRAM) ---
+# Esta parte roda toda vez que o 'st_autorefresh' dispara (a cada 1 min)
+try:
+    res_pendente = supabase.table("agenda").select("*").eq("status", "Pendente").execute().data
+    if res_pendente:
+        agora = dt.now()
+        for row in res_pendente:
+            # Pega a data e hora do agendamento
+            data_str = row['data_hora'].replace("T", " ")
+            try:
+                h_ag = dt.strptime(data_str, "%Y-%m-%d %H:%M:%S")
+            except:
+                h_ag = dt.strptime(data_str, "%Y-%m-%d") # Fallback
+
+            diff = (h_ag - agora).total_seconds() / 60
+            
+            # Se faltar entre 14 e 16 minutos (janela segura para enviar 1 vez)
+            if 14.0 <= diff <= 16.0:
+                msg = f"🔔 *CORRE QUE DÁ TEMPO (15 min)*\n\n👤 Cliente: {row['cliente_nome']}\n💅 Serviço: {row['servico']}\n⏰ Horário: {row['data_hora'][11:16]}"
+                enviar_telegram(msg)
+except Exception as e:
+    pass # Ignora erros silenciosamente para não travar o site
 
 # --- MENU LATERAL ---
 opcoes = ["Agenda", "Checkout", "Financeiro", "CRM & Fidelidade", "Estoque", "Clientes"]
@@ -169,10 +185,17 @@ with st.sidebar:
             "nav-link-selected": {"background-color": "#673ab7", "color": "white", "font-weight": "bold"}
         }
     )
+    
+    st.divider()
+    # Botão de Teste do Telegram
+    if st.button("🔔 Testar Telegram"):
+        enviar_telegram("✅ O Genrensiador VIP está conectado com sucesso ao seu Telegram!")
+        st.toast("Mensagem de teste enviada!")
+        
     st.divider()
     if st.button("Sair"):
         st.session_state['autenticado'] = False
-        st.query_params.clear() # Limpa o token ao sair
+        st.query_params.clear() 
         st.rerun()
 
 # --- FUNCIONALIDADES ---
